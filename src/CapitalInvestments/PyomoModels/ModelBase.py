@@ -89,10 +89,11 @@ class ModelBase:
     self.nonSelection = False   # options DoNothing should be included for each projects if True, otherwise should not be included
     self.optionalConstraints = {} # dictionary of optional constraints that users can turn on or off, i.e. {consistentConstraintI:True}
     self.sopts = {} # options for solvers, i.e. self.sopts['threads'] = 4
-    self.phopts = {} # options for progressive hedging method
-    self.phopts['--output-solver-log'] = None
-    self.phopts['--max-iterations'] = 3
-    self.phopts['--linearize-nonbinary-penalty-terms'] = 4
+    self.phopts = {
+        '--output-solver-log': None,
+        '--max-iterations': 3,
+        '--linearize-nonbinary-penalty-terms': 4,
+    }
     self.phRho = 1
     self.executable = None      # specify the path to the solver
     self.stochSolver = 'ef'     # stochastic solver, default runef, can be switched to runph method in pyomo.
@@ -157,9 +158,18 @@ class ModelBase:
       scenarioProbList.append(scenarioDict['probabilities'])
       paramList.append(paramName)
     self.scenarios['params'] = paramList
-    self.scenarios['scenario_name'] = dict(('scenario_' + str(i), name) for i, name in enumerate(list(itertools.product(*scenarioNameList)), 1))
-    self.scenarios['probabilities'] = dict(('scenario_' + str(i), float(np.product(list(prob)))) for i, prob in enumerate(list(itertools.product(*scenarioProbList)), 1))
-    self.scenarios['scenario_data'] = dict(('scenario_' + str(i), dict(zip(paramList, data))) for i, data in enumerate(list(itertools.product(*scenarioList)), 1))
+    self.scenarios['scenario_name'] = {
+        'scenario_' + str(i): name
+        for i, name in enumerate(list(itertools.product(*scenarioNameList)), 1)
+    }
+    self.scenarios['probabilities'] = {
+        'scenario_' + str(i): float(np.product(list(prob)))
+        for i, prob in enumerate(list(itertools.product(*scenarioProbList)), 1)
+    }
+    self.scenarios['scenario_data'] = {
+        'scenario_' + str(i): dict(zip(paramList, data))
+        for i, data in enumerate(list(itertools.product(*scenarioList)), 1)
+    }
 
   def setSettings(self):
     """
@@ -324,12 +334,15 @@ class ModelBase:
         if updateDict:
           if set(updateDict.keys()).issubset(set(paramsNameList)):
             # pre-process data with extended indices (i.e. time_periods)
-            extendedDict = {}
-            for key, value in updateDict.items():
-              extendedDict[key] = self.setParameters(key, self.paramsAuxInfo[key]['options'],
-                                    self.paramsAuxInfo[key]['maxDim'],
-                                    value
-                                  )
+            extendedDict = {
+                key: self.setParameters(
+                    key,
+                    self.paramsAuxInfo[key]['options'],
+                    self.paramsAuxInfo[key]['maxDim'],
+                    value,
+                )
+                for key, value in updateDict.items()
+            }
             # call internal functions to update parameters, initial values provided by LOGOS input file will be
             # modified by given dictionary "extendedDict"
             pyomoWrapper.updateParams(extendedDict)
@@ -343,13 +356,12 @@ class ModelBase:
           'External constraint: "{}" does not contain a method named "constraint". '
           'It must be present if this needs to be used in LOGOS optimization!'.format(constrKey)
         )
+      # constrMod.constraint(pyomoWrapper, constrKey)
+      externalConstraint = constrMod.constraint(decisionVar, setsDict, paramsDict)
+      if len(externalConstraint) == 1:
+        pyomoWrapper.addConstraint(constrKey, externalConstraint[0])
       else:
-        # constrMod.constraint(pyomoWrapper, constrKey)
-        externalConstraint = constrMod.constraint(decisionVar, setsDict, paramsDict)
-        if len(externalConstraint) == 1:
-          pyomoWrapper.addConstraint(constrKey, externalConstraint[0])
-        else:
-          pyomoWrapper.addConstraintSet(constrKey, externalConstraint[0], externalConstraint[1:])
+        pyomoWrapper.addConstraintSet(constrKey, externalConstraint[0], externalConstraint[1:])
 
     return model
 
@@ -449,15 +461,8 @@ class ModelBase:
       # specifying the path to a solver
       # with SolverFactory(self.solver, executable=self.executable) as opt:
       with SolverFactory(self.solver) as opt:
-        opt.options.update(self.sopts) # add solver options
-        model = self.createInstance(inputData)
-        results = opt.solve(model, load_solutions=False, tee=self.tee, **{'use_signal_handling':False})
-        if results.solver.termination_condition != TerminationCondition.optimal:
-          raise RuntimeError("Solver did not report optimality:\n%s" %(results.solver))
-        model.solutions.load_from(results)
-        outputDict.update(self.printSolution(model))
-        self.output.update(outputDict)
-        # TODO: Add collect output and return a dictionary for raven to retrieve information
+        self._extracted_from_run_9(opt, inputData, outputDict)
+            # TODO: Add collect output and return a dictionary for raven to retrieve information
     else:
       tree_model = self.pysp_scenario_tree_model_callback()
       if self.stochSolver == 'ef':
@@ -465,12 +470,7 @@ class ModelBase:
         # tree_model generated by pysp_scenario_tree_model_callback
         stsolver = rapper.StochSolver("", fsfct=self.pysp_instance_creation_callback, tree_model=tree_model)
         ef_sol = stsolver.solve_ef(self.solver, sopts=self.sopts, tee=self.tee)
-        if ef_sol.solver.termination_condition != TerminationCondition.optimal:
-          raise RuntimeError("Solver did not report optimality:\n%s" %(ef_sol.solver))
-        # TODO: Add collect output and return a dictionary for raven to retrieve information
-        self.printScenarioSolution(stsolver)
-        outputDict.update(self.getScenarioSolution(stsolver.scenario_tree))
-        self.output.update(outputDict)
+        self._extracted_from_run_25(ef_sol, stsolver, outputDict)
       elif self.stochSolver == 'ph':
         # fsfct the callback function for pysp_instance_creation_callback
         # tree_model generated by pysp_scenario_tree_model_callback
@@ -482,13 +482,26 @@ class ModelBase:
         for nodeName, varName, varValue in rapper.xhat_walker(xhat):
           print (nodeName, varName, varValue)
 
-        if ph_sol.solver.termination_condition != TerminationCondition.optimal:
-          raise RuntimeError("Solver did not report optimality:\n%s" %(ph_sol.solver))
-        self.printScenarioSolution(stsolver)
-        outputDict.update(self.getScenarioSolution(stsolver.scenario_tree))
-        self.output.update(outputDict)
-
+        self._extracted_from_run_25(ph_sol, stsolver, outputDict)
     return outputDict
+
+  def _extracted_from_run_9(self, opt, inputData, outputDict):
+    opt.options.update(self.sopts) # add solver options
+    model = self.createInstance(inputData)
+    results = opt.solve(model, load_solutions=False, tee=self.tee, **{'use_signal_handling':False})
+    if results.solver.termination_condition != TerminationCondition.optimal:
+      raise RuntimeError("Solver did not report optimality:\n%s" %(results.solver))
+    model.solutions.load_from(results)
+    outputDict.update(self.printSolution(model))
+    self.output.update(outputDict)
+
+  def _extracted_from_run_25(self, arg0, stsolver, outputDict):
+    if arg0.solver.termination_condition != TerminationCondition.optimal:
+      raise RuntimeError("Solver did not report optimality:\n%s" % arg0.solver)
+    # TODO: Add collect output and return a dictionary for raven to retrieve information
+    self.printScenarioSolution(stsolver)
+    outputDict.update(self.getScenarioSolution(stsolver.scenario_tree))
+    self.output.update(outputDict)
 
   def printSolution(self, model):
     """
@@ -496,8 +509,7 @@ class ModelBase:
       @ In, model, instance, pyomo optimization model
       @ Out, outputDict, dict, dictionary stores the outputs
     """
-    outputDict = {}
-    return outputDict
+    return {}
 
   def printScenarioSolution(self, stsolver):
     """
@@ -516,16 +528,15 @@ class ModelBase:
       @ In, filename, string, filename of output file
       @ Out, None
     """
-    fileObj = open(filename,"w")
-    fileObj.write("Scenarios: \n")
-    for scenarioName, scenarioInfo in self.scenarios['scenario_data'].items():
-      fileObj.write("\t%s:\n" %scenarioName)
-      for var, valDict in scenarioInfo.items():
-        fileObj.write("\t\t%s:" % var)
-        for val in valDict.values():
-          fileObj.write("%10.4f" % val)
-        fileObj.write("\n")
-    fileObj.close()
+    with open(filename,"w") as fileObj:
+      fileObj.write("Scenarios: \n")
+      for scenarioName, scenarioInfo in self.scenarios['scenario_data'].items():
+        fileObj.write("\t%s:\n" %scenarioName)
+        for var, valDict in scenarioInfo.items():
+          fileObj.write("\t\t%s:" % var)
+          for val in valDict.values():
+            fileObj.write("%10.4f" % val)
+          fileObj.write("\n")
 
   def getScenarioSolution(self, ts):
     """

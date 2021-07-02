@@ -30,11 +30,11 @@ def convertNodeTextToList(nodeText, sep=None):
   listData = None
   if sep is None:
     if ',' in nodeText:
-      listData = list(elem.strip() for elem in nodeText.split(','))
+      listData = [elem.strip() for elem in nodeText.split(',')]
     else:
-      listData = list(elem.strip() for elem in nodeText.split())
+      listData = [elem.strip() for elem in nodeText.split()]
   else:
-    listData = list(elem.strip() for elem in nodeText.split(sep))
+    listData = [elem.strip() for elem in nodeText.split(sep)]
   return listData
 
 def convertNodeTextToFloatList(nodeText, sep=None):
@@ -46,11 +46,11 @@ def convertNodeTextToFloatList(nodeText, sep=None):
   listData = None
   if sep is None:
     if ',' in nodeText:
-      listData = list(float(elem) for elem in nodeText.split(','))
+      listData = [float(elem) for elem in nodeText.split(',')]
     else:
-      listData = list(float(elem) for elem in nodeText.split())
+      listData = [float(elem) for elem in nodeText.split()]
   else:
-    listData = list(elem.strip() for elem in nodeText.split(sep))
+    listData = [elem.strip() for elem in nodeText.split(sep)]
   return listData
 
 def convertStringToFloat(xmlNode):
@@ -60,8 +60,7 @@ def convertStringToFloat(xmlNode):
     @ Out, val, float, value of xml element text
   """
   try:
-    val = float(xmlNode.text)
-    return val
+    return float(xmlNode.text)
   except (ValueError,TypeError):
     raise IOError('Real value is required for content of node %s, but got %s' %(node.tag, node.text))
 
@@ -72,8 +71,7 @@ def convertStringToInt(xmlNode):
     @ Out, val, integer, value of xml element text
   """
   try:
-    val = int(xmlNode.text)
-    return val
+    return int(xmlNode.text)
   except (ValueError,TypeError):
     raise IOError('Integer value is required for content of node %s, but got %s' %(node.tag, node.text))
 
@@ -109,10 +107,7 @@ def identifyIfExternalModuleExists(moduleIn, workingDir):
     @ Out, (moduleToLoad, fileName), tuple, a tuple containing the module to load (that should be used in
       method importFromPath) and the filename (no path)
   """
-  if moduleIn.endswith('.py'):
-    moduleToLoadString = moduleIn[:-3]
-  else:
-    moduleToLoadString = moduleIn
+  moduleToLoadString = moduleIn[:-3] if moduleIn.endswith('.py') else moduleIn
   workingDirModule = os.path.abspath(os.path.join(workingDir,moduleToLoadString))
   if os.path.exists(workingDirModule + ".py"):
     moduleToLoadString = workingDirModule
@@ -157,10 +152,7 @@ def makeDir(dirName):
   try:
     os.makedirs(dirName)
   except OSError as exc:
-    if exc.errno == errno.EEXIST and os.path.isdir(dirName):
-      ## The path already exists so we can safely ignore this exception
-      pass
-    else:
+    if exc.errno != errno.EEXIST or not os.path.isdir(dirName):
       ## If it failed for some other reason, we want to see what the
       ## error is still
       raise

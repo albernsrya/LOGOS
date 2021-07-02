@@ -5,20 +5,24 @@
   Date  :  09/04/2019
 """
 #External Modules---------------------------------------------------------------
-import numpy as np
-import math
-import os
-import sys
 #External Modules End-----------------------------------------------------------
 
 #Internal Modules---------------------------------------------------------------
-from utils import InputData, InputTypes
-from PluginBaseClasses.ExternalModelPluginBase import ExternalModelPluginBase
 #Internal Modules End-----------------------------------------------------------
 
 #TEAL CashFlow modules----------------------------------------------------------
-from TEAL.src import main
+# External Modules---------------------------------------------------------------
+import numpy as np
+from PluginBaseClasses.ExternalModelPluginBase import ExternalModelPluginBase
 from TEAL.src import CashFlows
+# TEAL CashFlow modules----------------------------------------------------------
+from TEAL.src import main
+# Internal Modules---------------------------------------------------------------
+from utils import InputData, InputTypes
+
+
+# External Modules End-----------------------------------------------------------
+# Internal Modules End-----------------------------------------------------------
 #TEAL CashFlow modules End------------------------------------------------------
 
 class IncrementalNPV(ExternalModelPluginBase):
@@ -155,18 +159,22 @@ class IncrementalNPV(ExternalModelPluginBase):
     #GlobalSettings
     verbosity = 100
     settings = CashFlows.GlobalSettings(verbosity=verbosity)
-    paramDict = {}
-    paramDict['DiscountRate'] = container.discountRate
-    paramDict['tax'] = container.tax
-    paramDict['inflation'] = container.inflation
-    paramDict['projectTime'] = container.lifetime
-    paramDict['Indicator'] = {'name':['NPV'], 'target':None, 'active':projectName}
+    paramDict = {
+        'DiscountRate': container.discountRate,
+        'tax': container.tax,
+        'inflation': container.inflation,
+        'projectTime': container.lifetime,
+        'Indicator': {
+            'name': ['NPV'],
+            'target': None,
+            'active': projectName
+        },
+    }
     settings.setParams(paramDict)
 
     #Cashflow, using Capex
     cashflow = CashFlows.Recurring(component=componentName, verbosity=verbosity)
-    paramDict = {}
-    paramDict['name'] = cashflowName
+    paramDict = {'name': cashflowName}
     paramDict['tax'] = container.tax
     paramDict['inflation'] = container.inflation
     paramDict['alpha'] = 1
@@ -179,11 +187,12 @@ class IncrementalNPV(ExternalModelPluginBase):
 
     #Component
     component = CashFlows.Component(verbosity=verbosity)
-    componentParams ={}
-    componentParams['name'] = componentName
-    componentParams['Life_time'] = container.lifetime
-    componentParams['StartTime'] = 0
-    componentParams['Repetitions'] = 0
+    componentParams = {
+        'name': componentName,
+        'Life_time': container.lifetime,
+        'StartTime': 0,
+        'Repetitions': 0,
+    }
     componentParams['tax'] = container.tax
     componentParams['inflation'] = container.inflation
     componentParams['cash_flows'] = None # reset using the calculated cashflow

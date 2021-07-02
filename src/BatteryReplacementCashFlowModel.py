@@ -227,18 +227,22 @@ class BatteryReplacementCashFlowModel(ExternalModelPluginBase):
     #GlobalSettings
     verbosity = 100
     settings = CashFlows.GlobalSettings(verbosity=verbosity)
-    paramDict = {}
-    paramDict['DiscountRate'] = container.discountRate
-    paramDict['tax'] = container.tax
-    paramDict['inflation'] = container.inflation
-    paramDict['projectTime'] = container.lifetime
-    paramDict['Indicator'] = {'name':['NPV'], 'target':None, 'active':['Battery|Replacement']}
+    paramDict = {
+        'DiscountRate': container.discountRate,
+        'tax': container.tax,
+        'inflation': container.inflation,
+        'projectTime': container.lifetime,
+        'Indicator': {
+            'name': ['NPV'],
+            'target': None,
+            'active': ['Battery|Replacement'],
+        },
+    }
     settings.setParams(paramDict)
 
     #Cashflow, using Capex
     cashflow = CashFlows.Recurring(component='Battery', verbosity=verbosity)
-    paramDict = {}
-    paramDict['name'] = 'Replacement'
+    paramDict = {'name': 'Replacement'}
     paramDict['tax'] = container.tax
     paramDict['inflation'] = container.inflation
     paramDict['X'] = 1.
@@ -251,8 +255,7 @@ class BatteryReplacementCashFlowModel(ExternalModelPluginBase):
 
     #Component
     component = CashFlows.Component(verbosity=verbosity)
-    paramDict ={}
-    paramDict['name'] = 'Battery'
+    paramDict = {'name': 'Battery'}
     paramDict['Life_time'] = container.lifetime
     paramDict['StartTime'] = 0
     paramDict['Repetitions'] = 0

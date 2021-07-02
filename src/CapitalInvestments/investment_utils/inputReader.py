@@ -51,7 +51,7 @@ def computeIndices(indexNameList, setsDict):
   if len(indexNameList) == 1:
     indices = setsDict[indexNameList[0]]
   else:
-    indices = list(setsDict[indexName] for indexName in indexNameList)
+    indices = [setsDict[indexName] for indexName in indexNameList]
     indices = list(itertools.product(*indices))
   return indices
 
@@ -85,9 +85,9 @@ def readSets(root, nodeTag):
       depIndex = indices[i]
       subIndices = utils.convertNodeTextToList(subIndex)
       if type(depIndex) == str:
-        subIndices = list((depIndex, sub) for sub in subIndices)
+        subIndices = [(depIndex, sub) for sub in subIndices]
       else:
-        subIndices = list(depIndex + (sub,) for sub in subIndices)
+        subIndices = [depIndex + (sub,) for sub in subIndices]
       requiredIndex.extend(subIndices)
     setsDict[setName] = requiredIndex
   return setsDict
@@ -111,7 +111,7 @@ def readParameters(root, nodeTag, setsDict):
     contents = utils.convertNodeTextToFloatList(subnode.text)
     if indexAttribName is not None:
       indexNameList = utils.convertNodeTextToList(indexAttribName)
-      indexDimList = list(len(setsDict[indexName]) for indexName in indexNameList)
+      indexDimList = [len(setsDict[indexName]) for indexName in indexNameList]
       metaDict[paramName] = collections.OrderedDict(zip(indexNameList, indexDimList))
       indices = computeIndices(indexNameList, setsDict)
       if len(indices) != len(contents):
@@ -119,19 +119,18 @@ def readParameters(root, nodeTag, setsDict):
         + ' is not consistent with index ' + indexAttribName + ' with length ' + str(len(indices))
         raise IOError(msg)
       paramsDict[paramName] = collections.OrderedDict(zip(indices,contents))
+    elif len(contents) == 1:
+      paramsDict[paramName] = {'None':contents[0]}
+      metaDict[paramName] = {None:1}
+    elif len(contents) == len(setsDict['investments']) and paramName != 'available_capitals':
+      paramsDict[paramName] = collections.OrderedDict(zip(setsDict['investments'], contents))
+      metaDict[paramName] = {'investments':len(setsDict['investments'])}
+    elif 'capitals' in setsDict.keys() and len(contents) == len(setsDict['capitals']):
+      if paramName == 'available_capitals':
+        paramsDict[paramName] = collections.OrderedDict(zip(setsDict['capitals'], contents))
+        metaDict[paramName] = {'capitals':len(setsDict['capitals'])}
     else:
-      if len(contents) == 1:
-        paramsDict[paramName] = {'None':contents[0]}
-        metaDict[paramName] = {None:1}
-      elif len(contents) == len(setsDict['investments']) and paramName != 'available_capitals':
-        paramsDict[paramName] = collections.OrderedDict(zip(setsDict['investments'], contents))
-        metaDict[paramName] = {'investments':len(setsDict['investments'])}
-      elif 'capitals' in setsDict.keys() and len(contents) == len(setsDict['capitals']):
-        if paramName == 'available_capitals':
-          paramsDict[paramName] = collections.OrderedDict(zip(setsDict['capitals'], contents))
-          metaDict[paramName] = {'capitals':len(setsDict['capitals'])}
-      else:
-        raise IOError('Index is not provided, the text in node ' + tag + ' should be scalar!')
+      raise IOError('Index is not provided, the text in node ' + tag + ' should be scalar!')
   return paramsDict, metaDict
 
 def readUncertainties(root, nodeTag, paramsDict):
@@ -145,37 +144,36 @@ def readUncertainties(root, nodeTag, paramsDict):
   """
   logger.info('Read Uncertainties information')
   uncertainties = root.find(nodeTag)
-  if uncertainties is not None:
-    uncertaintiesDict = {}
-    for subnode in uncertainties:
-      paramName = subnode.tag
-      if paramName not in paramsDict:
-        raise IOError('Parameter ' + paramName + ' is not found in the Parameters list!')
-
-      uncertaintiesDict[paramName] = {}
-      totalScenarios = int(findRequiredNode(subnode, 'totalScenarios').text)
-      probabilities = subnode.find('probabilities')
-      if probabilities is None:
-        uncertaintiesDict[paramName]['probabilities'] = [1.0/float(totalScenarios)] * totalScenarios
-      else:
-        uncertaintiesDict[paramName]['probabilities'] = utils.convertNodeTextToFloatList(probabilities.text)
-      scenarios = findRequiredNode(subnode, 'scenarios')
-      scenariosData = utils.convertNodeTextToFloatList(scenarios.text)
-      indices = paramsDict[paramName].keys()
-      if len(scenariosData) != len(indices) * totalScenarios:
-        raise IOError('Provided length of scenarios data for ' + paramName + ': ' + str(len(scenariosData)) + \
-         ' != "totalScenarios * dim(' + paramName + ')"' + ': ' + str(len(indices) * totalScenarios))
-      indexDim = len(indices)
-      scenariosNameList = []
-      uncertaintiesDict[paramName]['scenarios'] = collections.OrderedDict()
-      for i in range(1, totalScenarios+1):
-        scenarioName = 'scenario_' + paramName + '_' + str(i)
-        scenariosNameList.append(scenarioName)
-        data = scenariosData[indexDim * (i - 1):indexDim * i]
-        uncertaintiesDict[paramName]['scenarios'][scenarioName] = collections.OrderedDict(zip(indices, data))
-    return uncertaintiesDict
-  else:
+  if uncertainties is None:
     return None
+  uncertaintiesDict = {}
+  for subnode in uncertainties:
+    paramName = subnode.tag
+    if paramName not in paramsDict:
+      raise IOError('Parameter ' + paramName + ' is not found in the Parameters list!')
+
+    uncertaintiesDict[paramName] = {}
+    totalScenarios = int(findRequiredNode(subnode, 'totalScenarios').text)
+    probabilities = subnode.find('probabilities')
+    if probabilities is None:
+      uncertaintiesDict[paramName]['probabilities'] = [1.0/float(totalScenarios)] * totalScenarios
+    else:
+      uncertaintiesDict[paramName]['probabilities'] = utils.convertNodeTextToFloatList(probabilities.text)
+    scenarios = findRequiredNode(subnode, 'scenarios')
+    scenariosData = utils.convertNodeTextToFloatList(scenarios.text)
+    indices = paramsDict[paramName].keys()
+    if len(scenariosData) != len(indices) * totalScenarios:
+      raise IOError('Provided length of scenarios data for ' + paramName + ': ' + str(len(scenariosData)) + \
+       ' != "totalScenarios * dim(' + paramName + ')"' + ': ' + str(len(indices) * totalScenarios))
+    indexDim = len(indices)
+    scenariosNameList = []
+    uncertaintiesDict[paramName]['scenarios'] = collections.OrderedDict()
+    for i in range(1, totalScenarios+1):
+      scenarioName = 'scenario_' + paramName + '_' + str(i)
+      scenariosNameList.append(scenarioName)
+      data = scenariosData[indexDim * (i - 1):indexDim * i]
+      uncertaintiesDict[paramName]['scenarios'][scenarioName] = collections.OrderedDict(zip(indices, data))
+  return uncertaintiesDict
 
 def readSettings(root, nodeTag, workingDir):
   """
@@ -188,18 +186,15 @@ def readSettings(root, nodeTag, workingDir):
   settings = findRequiredNode(root, nodeTag)
   settingDict = {}
   for subnode in settings:
-    if subnode.tag == 'mandatory':
+    if (subnode.tag == 'mandatory'
+        or subnode.tag != 'solverOptions' and subnode.tag == 'workingDir'):
       settingDict[subnode.tag] = subnode.text.strip()
     elif subnode.tag == 'solverOptions':
-      settingDict[subnode.tag] = {}
-      for child in subnode:
-        settingDict[subnode.tag][child.tag] = child.text.strip()
-    elif subnode.tag == 'workingDir':
-      settingDict[subnode.tag] = subnode.text.strip()
+      settingDict[subnode.tag] = {child.tag: child.text.strip() for child in subnode}
     else:
       settingDict[subnode.tag] = subnode.text.strip().lower()
   # set working dir
-  if 'workingDir' in settingDict.keys():
+  if 'workingDir' in settingDict:
     if settingDict['workingDir'] is None:
       raise IOError('"workingDir" is empty! Use "." to indicate "inputfile directory" or specify a directory!')
     tempDir = settingDict['workingDir']
@@ -247,44 +242,46 @@ def readEconomics(root, nodeTag, setsDict):
   """
   logger.info('Read Economics information')
   economics = root.find(nodeTag)
-  if economics is not None:
-    economicsDict = {}
-    for paramNode in economics:
-      paramDict = {}
-      for nodeTag in ['DiscountRate', 'tax', 'inflation']:
-        node = paramNode.find(nodeTag)
-        paramDict[nodeTag] = utils.convertStringToFloat(node) if node is not None else 0.0
-      cashFlow = findRequiredNode(paramNode, 'CashFlow')
-      cashFlowVal = utils.convertNodeTextToFloatList(cashFlow.text)
-      indexAttribName = cashFlow.get('index')
-      transposing = False
-      if indexAttribName is not None:
-        indexNameList = utils.convertNodeTextToList(indexAttribName)
-        if len(indexNameList) != 2:
-          raise IOError('CashFlow node can only accepts two indices')
-        elif indexNameList == ['investments','time_periods']:
-          transposing = False
-        elif indexNameList == ['time_periods','investments']:
-          transposing = True
-        else:
-          raise IOError('CashFlow node can only accepts two indices, i.e. "time_periods" and "investments"')
-      else:
-        indexNameList = ['investments','time_periods']
-      indexDimList = list(len(setsDict[indexName])+1 if indexName != 'investments' else len(setsDict[indexName]) \
-                     for indexName in indexNameList)
-      totDim = indexDimList[0] * indexDimList[1]
-      if totDim != len(cashFlowVal):
-        msg = 'Provided data for node ' + cashFlow.tag + ' with length ' + str(len(cashFlowVal)) \
-        + ' is correct, should be ' + str(totDim)
-        raise IOError(msg)
-      cashFlowVal = np.asarray(cashFlowVal).reshape(indexDimList)
-      columns = ['inflow'] + setsDict[indexNameList[1]]
-      cashFlowDF = pd.DataFrame(cashFlowVal, index=setsDict[indexNameList[0]], columns=columns)
-      paramDict['CashFlow'] = cashFlowDF if not transposing else cashFlowDF.T
-      economicsDict[paramNode.tag] = paramDict
-    return economicsDict
-  else:
+  if economics is None:
     return None
+  economicsDict = {}
+  for paramNode in economics:
+    paramDict = {}
+    for nodeTag in ['DiscountRate', 'tax', 'inflation']:
+      node = paramNode.find(nodeTag)
+      paramDict[nodeTag] = utils.convertStringToFloat(node) if node is not None else 0.0
+    cashFlow = findRequiredNode(paramNode, 'CashFlow')
+    cashFlowVal = utils.convertNodeTextToFloatList(cashFlow.text)
+    indexAttribName = cashFlow.get('index')
+    transposing = False
+    if indexAttribName is not None:
+      indexNameList = utils.convertNodeTextToList(indexAttribName)
+      if len(indexNameList) != 2:
+        raise IOError('CashFlow node can only accepts two indices')
+      elif indexNameList == ['investments','time_periods']:
+        transposing = False
+      elif indexNameList == ['time_periods','investments']:
+        transposing = True
+      else:
+        raise IOError('CashFlow node can only accepts two indices, i.e. "time_periods" and "investments"')
+    else:
+      indexNameList = ['investments','time_periods']
+    indexDimList = [
+        len(setsDict[indexName]) + 1
+        if indexName != 'investments' else len(setsDict[indexName])
+        for indexName in indexNameList
+    ]
+    totDim = indexDimList[0] * indexDimList[1]
+    if totDim != len(cashFlowVal):
+      msg = 'Provided data for node ' + cashFlow.tag + ' with length ' + str(len(cashFlowVal)) \
+      + ' is correct, should be ' + str(totDim)
+      raise IOError(msg)
+    cashFlowVal = np.asarray(cashFlowVal).reshape(indexDimList)
+    columns = ['inflow'] + setsDict[indexNameList[1]]
+    cashFlowDF = pd.DataFrame(cashFlowVal, index=setsDict[indexNameList[0]], columns=columns)
+    paramDict['CashFlow'] = cashFlowDF if not transposing else cashFlowDF.T
+    economicsDict[paramNode.tag] = paramDict
+  return economicsDict
 
 def computeNPVs(economicsDict):
   """
@@ -332,11 +329,8 @@ def readInput(filename, workingDir='.'):
     root = tree.getroot()
   elif isinstance(filename, ET.ElementTree):
     root = filename.getroot()
-  elif isinstance(filename, ET.Element):
-    root = filename
   else:
     root = filename
-    #raise IOError('Unsupported type of input is provided: ' + str(type(filename)))
   initDict = {'Sets':None, 'Parameters':None, 'Settings':None, 'Meta': None,
               'Uncertainties': None, 'ExternalConstraints': None}
   metaData = {'Parameters':None}

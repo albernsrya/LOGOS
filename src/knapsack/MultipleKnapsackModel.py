@@ -89,21 +89,17 @@ class MultipleKnapsackModel(BaseKnapsackModel):
     numberUnsatConstraints = 0.0
 
     for key in container.mapping:
-      if key in inputDict.keys() and inputDict[key] in elementAllowedValues:
-        if inputDict[key] > 0.0:
-          knapsackChosen = str(int(inputDict[key][0]))
-          knapsackSetValues[knapsackChosen] = knapsackSetValues[knapsackChosen] - inputDict[container.mapping[key][1]][0]
-          if knapsackSetValues[knapsackChosen] >= 0:
-            totalValue = totalValue + inputDict[container.mapping[key][0]]
-          else:
-            totalValue = totalValue - inputDict[container.mapping[key][0]] * self.penaltyFactor
-            numberUnsatConstraints = numberUnsatConstraints + 1.
-      else:
+      if (key not in inputDict.keys()
+          or inputDict[key] not in elementAllowedValues):
         raise IOError("MultipleKnapsackModel: variable " + str(key) + " is either not found in the set of input variables or its values is not allowed.")
 
-    if numberUnsatConstraints > 0.0 :
-      container.__dict__[self.outcome] = 1.
-    else:
-      container.__dict__[self.outcome] = 0.
-
+      if inputDict[key] > 0.0:
+        knapsackChosen = str(int(inputDict[key][0]))
+        knapsackSetValues[knapsackChosen] = knapsackSetValues[knapsackChosen] - inputDict[container.mapping[key][1]][0]
+        if knapsackSetValues[knapsackChosen] >= 0:
+          totalValue += inputDict[container.mapping[key][0]]
+        else:
+          totalValue -= inputDict[container.mapping[key][0]] * self.penaltyFactor
+          numberUnsatConstraints += 1.
+    container.__dict__[self.outcome] = 1. if numberUnsatConstraints > 0.0 else 0.
     container.__dict__[self.choiceValue] = totalValue

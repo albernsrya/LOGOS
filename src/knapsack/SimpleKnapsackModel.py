@@ -74,23 +74,16 @@ class SimpleKnapsackModel(BaseKnapsackModel):
     capacity = inputDict[self.capacity][0]
 
     for key in container.mapping:
-      if key in inputDict.keys() and inputDict[key] in [0.0,1.0]:
-        if inputDict[key] == 1.0:
-          capacity = capacity - inputDict[container.mapping[key][1]][0]
-          if capacity >= 0:
-            totalValue = totalValue + inputDict[container.mapping[key][0]]
-          else:
-            totalValue = totalValue - inputDict[container.mapping[key][0]] * self.penaltyFactor
-        elif inputDict[key] == 0.0:
-          pass
-        else:
-          raise IOError("SimpleKnapsackModel: variable " + str(key) + " does not have a 0/1 value.")
-      else:
+      if key not in inputDict.keys() or inputDict[key] not in [0.0, 1.0]:
         raise IOError("SimpleKnapsackModel: variable " + str(key) + " is not found in the set of input variables.")
 
-    if capacity>=0:
-      container.__dict__[self.outcome] =  0.
-    else:
-      container.__dict__[self.outcome] = 1.
-
+      if inputDict[key] == 1.0:
+        capacity = capacity - inputDict[container.mapping[key][1]][0]
+        if capacity >= 0:
+          totalValue += inputDict[container.mapping[key][0]]
+        else:
+          totalValue -= inputDict[container.mapping[key][0]] * self.penaltyFactor
+      elif inputDict[key] != 0.0:
+        raise IOError("SimpleKnapsackModel: variable " + str(key) + " does not have a 0/1 value.")
+    container.__dict__[self.outcome] = 0. if capacity>=0 else 1.
     container.__dict__[self.choiceValue] = totalValue

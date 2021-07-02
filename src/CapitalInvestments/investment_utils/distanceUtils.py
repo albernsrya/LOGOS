@@ -42,6 +42,5 @@ def computeDist(distName, scenarioDict, kwargs={}):
   logger.debug('Compute "{}" distance for given scenarios'.format(distName))
   dist = DistanceMetric.get_metric(distName, **kwargs)
   data = preprocessData(scenarioDict)
-  distData = dist.pairwise(data)
   # print("distance: ", distData)
-  return distData
+  return dist.pairwise(data)

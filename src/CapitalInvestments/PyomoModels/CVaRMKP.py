@@ -65,8 +65,7 @@ class CVaRMKP(MultipleKnapsack):
       @ In, model, instance, pyomo abstract model instance
       @ Out, expr, float, first stage cost
     """
-    expr = -model._lambda * model.u
-    return expr
+    return -model._lambda * model.u
 
   @staticmethod
   def computeSecondStageCost(model):
@@ -75,9 +74,11 @@ class CVaRMKP(MultipleKnapsack):
       @ In, model, instance, pyomo abstract model instance
       @ Out, expr, pyomo.expression, second stage cost
     """
-    expr = sum(sum(model.net_present_values[i] * model.x[i,m] for i in model.investments) for m in model.capitals) \
-           * (1.-model._lambda) - model._lambda/(1.0-model.alpha)*model.nu
-    return expr
+    return (sum(
+        sum(model.net_present_values[i] * model.x[i, m]
+            for i in model.investments)
+        for m in model.capitals) * (1.0 - model._lambda) -
+            model._lambda / (1.0 - model.alpha) * model.nu)
 
   def addAdditionalSets(self, model):
     """
@@ -152,8 +153,7 @@ class CVaRMKP(MultipleKnapsack):
       @ In, None
       @ Out, model, pyomo.AbstractModel, abstract pyomo model
     """
-    model = MultipleKnapsack.createModel(self)
-    return model
+    return MultipleKnapsack.createModel(self)
 
   def pysp_scenario_tree_model_callback(self):
     """

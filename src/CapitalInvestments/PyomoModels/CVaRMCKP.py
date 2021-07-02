@@ -65,8 +65,7 @@ class CVaRMCKP(MCKP):
       @ In, model, instance, pyomo abstract model instance
       @ Out, expr, float, first stage cost
     """
-    expr = -model._lambda * model.u
-    return expr
+    return -model._lambda * model.u
 
   @staticmethod
   def computeSecondStageCost(model):
@@ -75,9 +74,9 @@ class CVaRMCKP(MCKP):
       @ In, model, instance, pyomo abstract model instance
       @ Out, expr, pyomo.expression, second stage cost
     """
-    expr = pyomo.summation(model.net_present_values, model.x) * (1.-model._lambda) - \
-           model._lambda/(1.0-model.alpha)*model.nu
-    return expr
+    return (
+        pyomo.summation(model.net_present_values, model.x) *
+        (1.0 - model._lambda) - model._lambda / (1.0 - model.alpha) * model.nu)
 
   def addAdditionalSets(self, model):
     """
@@ -152,8 +151,7 @@ class CVaRMCKP(MCKP):
       @ In, None
       @ Out, model, pyomo.AbstractModel, abstract pyomo model
     """
-    model = MCKP.createModel(self)
-    return model
+    return MCKP.createModel(self)
 
   def pysp_scenario_tree_model_callback(self):
     """
